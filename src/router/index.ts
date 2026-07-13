@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
+import TransactionDetailView from '../views/TransactionDetailView.vue'
 import TransactionNewView from '../views/TransactionNewView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
 import { useAuthStore } from '../stores/auth'
@@ -31,6 +32,12 @@ const router = createRouter({
       path: '/transactions/new',
       name: 'transactions-new',
       component: TransactionNewView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/transactions/:id',
+      name: 'transaction-detail',
+      component: TransactionDetailView,
       meta: { requiresAuth: true },
     },
   ],
