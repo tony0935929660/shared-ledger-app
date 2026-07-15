@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
+import ProfileView from '../views/ProfileView.vue'
 import TransactionDetailView from '../views/TransactionDetailView.vue'
 import TransactionNewView from '../views/TransactionNewView.vue'
 import TransactionsView from '../views/TransactionsView.vue'
@@ -26,6 +27,12 @@ const router = createRouter({
       path: '/transactions',
       name: 'transactions',
       component: TransactionsView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
       meta: { requiresAuth: true },
     },
     {

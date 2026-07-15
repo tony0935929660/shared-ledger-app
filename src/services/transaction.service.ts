@@ -54,7 +54,7 @@ async function cleanupUploadedFiles(paths: string[]): Promise<void> {
 }
 
 function formatMemberLabel(member: MemberRow): string {
-  return `${member.display_name} (${member.email})`
+  return member.display_name
 }
 
 function buildMemberNameMap(members: MemberRow[]): Map<string, string> {

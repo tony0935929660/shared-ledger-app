@@ -3,26 +3,38 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const upsertMock = vi.fn()
+  const updateEqMock = vi.fn()
+  const updateMock = vi.fn(() => ({
+    eq: updateEqMock,
+  }))
   const fromMock = vi.fn(() => ({
     upsert: upsertMock,
+    update: updateMock,
   }))
   const rpcMock = vi.fn()
+  const getUserMock = vi.fn()
 
   return {
     upsertMock,
+    updateEqMock,
+    updateMock,
     fromMock,
     rpcMock,
+    getUserMock,
   }
 })
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    auth: {
+      getUser: mocks.getUserMock,
+    },
     from: mocks.fromMock,
     rpc: mocks.rpcMock,
   },
 }))
 
-import { ensureMemberProfile } from './auth.service'
+import { ensureMemberProfile, updateMemberDisplayName } from './auth.service'
 
 function createUser(overrides: Partial<User> = {}): User {
   return {
@@ -40,7 +52,12 @@ describe('ensureMemberProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.upsertMock.mockResolvedValue({ error: null })
+    mocks.updateEqMock.mockResolvedValue({ error: null })
     mocks.rpcMock.mockResolvedValue({ error: null })
+    mocks.getUserMock.mockResolvedValue({
+      data: { user: { id: '00000000-0000-0000-0000-000000000001' } },
+      error: null,
+    })
   })
 
   it('upserts member profile and bootstraps first ledger', async () => {
@@ -64,5 +81,17 @@ describe('ensureMemberProfile', () => {
     await expect(
       ensureMemberProfile(createUser({ email: undefined }))
     ).rejects.toThrow('Authenticated user is missing required profile fields.')
+  })
+
+  it('updates current member display name', async () => {
+    await updateMemberDisplayName('  Tony Chen  ')
+
+    expect(mocks.fromMock).toHaveBeenCalledWith('members')
+    expect(mocks.updateMock).toHaveBeenCalledWith({ display_name: 'Tony Chen' })
+    expect(mocks.updateEqMock).toHaveBeenCalledWith('id', '00000000-0000-0000-0000-000000000001')
+  })
+
+  it('rejects empty display name', async () => {
+    await expect(updateMemberDisplayName('   ')).rejects.toThrow('顯示名稱不可為空')
   })
 })
