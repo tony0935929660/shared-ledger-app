@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { SelectOption, TransactionFilter, TransactionListItem, TransactionType } from '../features/transactions/types'
 import { getTransactionFormOptions, getTransactions } from '../services/transaction.service'
 
 const router = useRouter()
+const route = useRoute()
 
 const loading = ref(false)
-const errorMessage = ref('')
+const toastVisible = ref(false)
+const toastMessage = ref('')
 const items = ref<TransactionListItem[]>([])
 const categories = ref<SelectOption[]>([])
 const members = ref<SelectOption[]>([])
@@ -43,27 +45,46 @@ function getReimbursementLabel(item: TransactionListItem): string {
   return item.returnedAt ? '已返還' : '待返還'
 }
 
+function showErrorToast(message: string): void {
+  toastMessage.value = message
+  toastVisible.value = true
+}
+
 async function loadFilterOptions(type: TransactionType = 'expense') {
   try {
     const options = await getTransactionFormOptions(type)
     categories.value = options.categories
     members.value = options.members
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '載入篩選資料失敗'
+    console.error('Failed to load transaction filter options:', error)
+    showErrorToast('載入篩選資料失敗，請稍後再試。')
   }
 }
 
 async function loadTransactions() {
   loading.value = true
-  errorMessage.value = ''
 
   try {
     items.value = await getTransactions(filters)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '讀取交易列表失敗'
+    console.error('Failed to load transactions:', error)
+    showErrorToast('讀取交易列表失敗，請稍後再試。')
   } finally {
     loading.value = false
   }
+}
+
+function applyRouteQueryFilters() {
+  const { advanceMemberId, reimbursementStatus } = route.query
+
+  filters.advanceMemberId = typeof advanceMemberId === 'string' && advanceMemberId ? advanceMemberId : undefined
+
+  if (reimbursementStatus === 'pending' || reimbursementStatus === 'returned') {
+    filters.reimbursementStatus = reimbursementStatus
+    return
+  }
+
+  filters.reimbursementStatus = undefined
 }
 
 watch(
@@ -80,13 +101,26 @@ watch(
 )
 
 onMounted(async () => {
+  applyRouteQueryFilters()
   await loadFilterOptions('expense')
   await loadTransactions()
 })
+
+watch(
+  () => route.query,
+  async () => {
+    applyRouteQueryFilters()
+    await loadTransactions()
+  }
+)
 </script>
 
 <template>
   <v-container class="py-8">
+    <v-snackbar v-model="toastVisible" color="error" timeout="3500" location="top">
+      {{ toastMessage }}
+    </v-snackbar>
+
     <v-card rounded="xl" elevation="2" :loading="loading">
       <v-card-title class="d-flex align-center">
         <span>交易列表</span>
@@ -95,8 +129,6 @@ onMounted(async () => {
       </v-card-title>
 
       <v-card-text>
-        <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">{{ errorMessage }}</v-alert>
-
         <v-row>
           <v-col cols="12" md="4">
             <v-text-field v-model="filters.keyword" label="關鍵字（項目/備註）" variant="outlined" density="compact" />

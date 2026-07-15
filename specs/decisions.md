@@ -34,6 +34,8 @@ V1 僅允許：
 
 `returned_by` 由系統自動寫入目前登入者。
 
+返還一旦設定後，不允許取消（不得將 `returned_at` 改回 NULL）。
+
 ## ADR-004 Payment Method
 
 只有 Expense 可設定付款方式：
@@ -86,3 +88,20 @@ V1 僅使用新台幣 TWD。
 所有資料庫時間使用 UTC。
 
 前端顯示使用 Asia/Taipei。
+
+## ADR-011 Active Member Authorization
+
+本專案中的「有效成員」定義為：
+
+- `members.is_active = true`
+
+所有 ledger 讀取與交易相關操作，皆需符合有效成員授權。
+
+## ADR-012 Controlled RPC Path
+
+V1 的高風險狀態變更必須走受控 RPC，不允許直接一般 UPDATE/DELETE：
+
+- 返還更新：`mark_transaction_returned(transaction_id, returned_at)`
+- 交易軟刪除：`soft_delete_transaction(transaction_id)`
+
+此規則用於集中商業邏輯、避免越權更新，並確保稽核欄位由系統一致寫入。

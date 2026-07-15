@@ -25,6 +25,25 @@ export type TransactionListItem = {
   createdAt: string
 }
 
+export type DashboardMetrics = {
+  totalCapital: string
+  currentMonthIncome: string
+  currentMonthExpense: string
+  currentBalance: string
+}
+
+export type PendingReimbursementItem = {
+  memberId: string
+  memberName: string
+  amount: string
+}
+
+export type DashboardData = {
+  metrics: DashboardMetrics
+  pendingReimbursements: PendingReimbursementItem[]
+  recentTransactions: TransactionListItem[]
+}
+
 export type TransactionFormInput = {
   type: TransactionType
   title: string

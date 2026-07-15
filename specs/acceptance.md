@@ -33,6 +33,7 @@
 - [ ] 備註不可修改
 - [ ] 代墊人不可修改
 - [ ] 只有返還資訊可更新
+- [ ] 返還設定後不可取消（returned_at 不可改回空值）
 
 ## Audit
 
@@ -62,3 +63,6 @@
 - [ ] Storage Policy 正常
 - [ ] 無 Hard Delete
 - [ ] 無一般交易 Update
+- [ ] 只有 active member（members.is_active=true）可讀寫 ledger 資料
+- [ ] 返還更新僅可透過 `mark_transaction_returned` RPC
+- [ ] 交易刪除僅可透過 `soft_delete_transaction` RPC（Soft Delete）

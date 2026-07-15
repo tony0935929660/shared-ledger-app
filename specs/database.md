@@ -125,6 +125,8 @@ Primary Key: `(ledger_id, member_id)`
 
 只有 ledger_members 中的有效成員可以讀取該 ledger。
 
+有效成員定義：`members.is_active = true`。
+
 ### Insert
 
 只有 ledger_members 中的有效成員可以建立交易。
@@ -138,6 +140,8 @@ Primary Key: `(ledger_id, member_id)`
 返還更新必須透過受控 RPC：
 
 `mark_transaction_returned(transaction_id, returned_at)`
+
+返還一旦設定後不得取消（不得將 `returned_at` 改回 NULL）。
 
 ### Delete
 
