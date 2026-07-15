@@ -80,7 +80,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-container class="py-6 py-md-8">
+  <v-container class="py-6 py-md-8 mx-auto" style="max-width: 1200px">
     <v-snackbar v-model="toastVisible" color="error" timeout="3500" location="top">
       {{ toastMessage }}
     </v-snackbar>

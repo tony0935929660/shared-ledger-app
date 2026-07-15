@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import type { SelectOption, TransactionFilter, TransactionListItem, TransactionType } from '../features/transactions/types'
 import { getTransactionFormOptions, getTransactions } from '../services/transaction.service'
 
 const router = useRouter()
 const route = useRoute()
+const { mdAndUp } = useDisplay()
 
 const loading = ref(false)
 const toastVisible = ref(false)
 const toastMessage = ref('')
+const showMobileFilters = ref(false)
 const items = ref<TransactionListItem[]>([])
 const categories = ref<SelectOption[]>([])
 const members = ref<SelectOption[]>([])
@@ -23,6 +26,8 @@ const filters = reactive<TransactionFilter>({
   advanceMemberId: undefined,
   reimbursementStatus: undefined,
 })
+
+const showFilters = computed(() => mdAndUp.value || showMobileFilters.value)
 
 function formatCurrency(amount: string): string {
   return new Intl.NumberFormat('zh-TW', {
@@ -43,6 +48,12 @@ function formatDateTime(value: string): string {
 function getReimbursementLabel(item: TransactionListItem): string {
   if (item.paymentMethod !== 'member_advance') return '-'
   return item.returnedAt ? '已返還' : '待返還'
+}
+
+function formatTypeLabel(type: TransactionType): string {
+  if (type === 'income') return '收入'
+  if (type === 'expense') return '支出'
+  return '資本投入'
 }
 
 function showErrorToast(message: string): void {
@@ -116,7 +127,7 @@ watch(
 </script>
 
 <template>
-  <v-container class="py-8">
+  <v-container class="py-8 mx-auto" style="max-width: 1200px">
     <v-snackbar v-model="toastVisible" color="error" timeout="3500" location="top">
       {{ toastMessage }}
     </v-snackbar>
@@ -125,11 +136,20 @@ watch(
       <v-card-title class="d-flex align-center">
         <span>交易列表</span>
         <v-spacer />
+        <v-btn
+          v-if="!mdAndUp"
+          variant="text"
+          prepend-icon="mdi-filter-outline"
+          class="mr-2"
+          @click="showMobileFilters = !showMobileFilters"
+        >
+          {{ showMobileFilters ? '收合篩選' : '展開篩選' }}
+        </v-btn>
         <v-btn color="primary" to="/transactions/new">新增交易</v-btn>
       </v-card-title>
 
       <v-card-text>
-        <v-row>
+        <v-row v-show="showFilters">
           <v-col cols="12" md="4">
             <v-text-field v-model="filters.keyword" label="關鍵字（項目/備註）" variant="outlined" density="compact" />
           </v-col>
@@ -197,7 +217,7 @@ watch(
           </v-col>
         </v-row>
 
-        <v-table class="mt-4">
+        <v-table v-if="mdAndUp" class="mt-4">
           <thead>
             <tr>
               <th>日期</th>
@@ -235,6 +255,32 @@ watch(
             </tr>
           </tbody>
         </v-table>
+
+        <v-list v-else class="mt-4" lines="three">
+          <v-list-item
+            v-for="item in items"
+            :key="item.id"
+            link
+            @click="router.push(`/transactions/${item.id}`)"
+          >
+            <template #title>
+              <div class="d-flex justify-space-between align-start ga-2">
+                <span class="font-weight-medium">{{ item.title }}</span>
+                <span class="font-weight-bold">{{ formatCurrency(item.amount) }}</span>
+              </div>
+            </template>
+            <template #subtitle>
+              <div class="text-body-2">{{ formatTypeLabel(item.type) }} ・ {{ item.categoryName }}</div>
+              <div class="text-caption">{{ item.transactionDate }} ・ {{ getReimbursementLabel(item) }}</div>
+            </template>
+          </v-list-item>
+
+          <v-list-item v-if="items.length === 0">
+            <template #title>
+              <span class="text-medium-emphasis">目前沒有符合條件的交易</span>
+            </template>
+          </v-list-item>
+        </v-list>
       </v-card-text>
     </v-card>
   </v-container>

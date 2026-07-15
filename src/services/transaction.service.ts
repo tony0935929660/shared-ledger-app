@@ -283,7 +283,10 @@ export async function getTransactionFormOptions(type: TransactionType): Promise<
   }
 }
 
-export async function createTransaction(input: TransactionFormInput): Promise<string> {
+export async function createTransaction(
+  input: TransactionFormInput,
+  onUploadProgress?: (progress: number) => void
+): Promise<string> {
   const parsed = transactionFormSchema.safeParse(input)
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0]
@@ -303,6 +306,17 @@ export async function createTransaction(input: TransactionFormInput): Promise<st
     size_bytes: number
   }> = []
 
+  const totalSteps = payload.attachments.length + 1
+  let completedSteps = 0
+
+  const reportProgress = (completed: number) => {
+    if (!onUploadProgress) return
+    const progress = Math.round((completed / totalSteps) * 100)
+    onUploadProgress(Math.min(100, Math.max(0, progress)))
+  }
+
+  reportProgress(0)
+
   try {
     for (const file of payload.attachments) {
       const fileExt = file.name.includes('.') ? file.name.split('.').pop() : undefined
@@ -321,6 +335,9 @@ export async function createTransaction(input: TransactionFormInput): Promise<st
         mime_type: file.type,
         size_bytes: file.size,
       })
+
+      completedSteps += 1
+      reportProgress(completedSteps)
     }
 
     const { data, error } = await supabase.rpc('create_transaction_with_attachments', {
@@ -337,6 +354,8 @@ export async function createTransaction(input: TransactionFormInput): Promise<st
 
     if (error) throw error
     if (!data) throw new Error('Transaction creation failed')
+
+    reportProgress(totalSteps)
 
     return data
   } catch (error) {

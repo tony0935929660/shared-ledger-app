@@ -8,8 +8,10 @@ const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const toastVisible = ref(false)
+const toastMessage = ref('')
+const toastColor = ref<'success' | 'error'>('success')
+const uploadProgress = ref(0)
 
 const categories = ref<SelectOption[]>([])
 const members = ref<SelectOption[]>([])
@@ -28,6 +30,7 @@ const form = reactive({
 
 const isExpense = computed(() => form.type === 'expense')
 const requiresAdvanceMember = computed(() => form.type === 'expense' && form.paymentMethod === 'member_advance')
+const hasAttachments = computed(() => form.attachments.length > 0)
 
 watch(
   () => form.type,
@@ -66,9 +69,14 @@ function handleAttachmentChange(fileList: File[] | File | null) {
   form.attachments = []
 }
 
+function showToast(message: string, color: 'success' | 'error'): void {
+  toastColor.value = color
+  toastMessage.value = message
+  toastVisible.value = true
+}
+
 async function loadOptions(type: TransactionType) {
   loading.value = true
-  errorMessage.value = ''
 
   try {
     const options = await getTransactionFormOptions(type)
@@ -79,7 +87,8 @@ async function loadOptions(type: TransactionType) {
       form.categoryId = categories.value[0]?.value ?? ''
     }
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '載入交易選項失敗'
+    console.error('Failed to load transaction options:', error)
+    showToast('載入交易選項失敗，請稍後再試。', 'error')
   } finally {
     loading.value = false
   }
@@ -87,8 +96,7 @@ async function loadOptions(type: TransactionType) {
 
 async function handleSubmit() {
   submitting.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
+  uploadProgress.value = 0
 
   try {
     const transactionId = await createTransaction({
@@ -101,12 +109,15 @@ async function handleSubmit() {
       paymentMethod: form.paymentMethod,
       advanceMemberId: form.advanceMemberId,
       attachments: form.attachments,
+    }, (progress) => {
+      uploadProgress.value = progress
     })
 
-    successMessage.value = '交易建立成功'
+    showToast('交易建立成功', 'success')
     await router.replace(`/transactions/${transactionId}`)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '建立交易失敗'
+    console.error('Failed to create transaction:', error)
+    showToast('建立交易失敗，請檢查資料後重試。', 'error')
   } finally {
     submitting.value = false
   }
@@ -118,13 +129,25 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-container class="py-8">
+  <v-container class="py-8 mx-auto" style="max-width: 960px">
+    <v-snackbar v-model="toastVisible" :color="toastColor" timeout="3500" location="top">
+      {{ toastMessage }}
+    </v-snackbar>
+
     <v-card rounded="xl" elevation="2" :loading="loading">
       <v-card-title>新增交易</v-card-title>
 
       <v-card-text>
-        <v-alert v-if="successMessage" type="success" variant="tonal" class="mb-4">{{ successMessage }}</v-alert>
-        <v-alert v-if="errorMessage" type="error" variant="tonal" class="mb-4">{{ errorMessage }}</v-alert>
+        <v-progress-linear
+          v-if="submitting && hasAttachments"
+          :model-value="uploadProgress"
+          color="primary"
+          height="8"
+          rounded
+          class="mb-4"
+        >
+          <strong>{{ uploadProgress }}%</strong>
+        </v-progress-linear>
 
         <v-row>
           <v-col cols="12" md="4">
@@ -199,6 +222,7 @@ onMounted(() => {
               multiple
               chips
               show-size
+              capture="environment"
               accept="image/jpeg,image/png,image/webp"
               label="附件（最多 5 張，每張 5MB）"
               variant="outlined"
