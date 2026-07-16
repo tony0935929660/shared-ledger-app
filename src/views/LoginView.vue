@@ -49,7 +49,7 @@ async function handleGoogleLogin() {
 <template>
   <div class="auth-page">
     <v-card class="auth-card" elevation="8" rounded="xl">
-      <v-card-title class="text-h5 text-center pt-6">Company Ledger</v-card-title>
+      <v-card-title class="text-h5 text-center pt-6">Ledger</v-card-title>
       <v-card-subtitle class="text-center">登入以開始共同記帳</v-card-subtitle>
       <v-card-text class="pt-6">
         <v-text-field
