@@ -56,18 +56,36 @@ export async function ensureMemberProfile(user: User): Promise<void> {
     throw new Error('Authenticated user is missing required profile fields.')
   }
 
-  const displayName = resolveDisplayName(user)
-
-  const { error: upsertError } = await supabase
+  const { data: existingMember, error: memberLookupError } = await supabase
     .from('members')
-    .upsert({
-      id: user.id,
-      email: user.email,
-      display_name: displayName,
-      is_active: true,
-    })
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
 
-  if (upsertError) throw upsertError
+  if (memberLookupError) throw memberLookupError
+
+  if (existingMember) {
+    const { error: updateError } = await supabase
+      .from('members')
+      .update({
+        email: user.email,
+        is_active: true,
+      })
+      .eq('id', user.id)
+
+    if (updateError) throw updateError
+  } else {
+    const { error: insertError } = await supabase
+      .from('members')
+      .insert({
+        id: user.id,
+        email: user.email,
+        display_name: resolveDisplayName(user),
+        is_active: true,
+      })
+
+    if (insertError) throw insertError
+  }
 
   const { error: bootstrapError } = await supabase.rpc('bootstrap_first_ledger', {
     p_ledger_name: 'Company Ledger',

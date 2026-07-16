@@ -2,20 +2,31 @@ import type { User } from '@supabase/supabase-js'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
-  const upsertMock = vi.fn()
+  const insertMock = vi.fn()
+  const maybeSingleMock = vi.fn()
+  const selectEqMock = vi.fn(() => ({
+    maybeSingle: maybeSingleMock,
+  }))
+  const selectMock = vi.fn(() => ({
+    eq: selectEqMock,
+  }))
   const updateEqMock = vi.fn()
   const updateMock = vi.fn(() => ({
     eq: updateEqMock,
   }))
   const fromMock = vi.fn(() => ({
-    upsert: upsertMock,
+    insert: insertMock,
+    select: selectMock,
     update: updateMock,
   }))
   const rpcMock = vi.fn()
   const getUserMock = vi.fn()
 
   return {
-    upsertMock,
+    insertMock,
+    maybeSingleMock,
+    selectEqMock,
+    selectMock,
     updateEqMock,
     updateMock,
     fromMock,
@@ -51,7 +62,8 @@ function createUser(overrides: Partial<User> = {}): User {
 describe('ensureMemberProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.upsertMock.mockResolvedValue({ error: null })
+    mocks.maybeSingleMock.mockResolvedValue({ data: null, error: null })
+    mocks.insertMock.mockResolvedValue({ error: null })
     mocks.updateEqMock.mockResolvedValue({ error: null })
     mocks.rpcMock.mockResolvedValue({ error: null })
     mocks.getUserMock.mockResolvedValue({
@@ -60,13 +72,15 @@ describe('ensureMemberProfile', () => {
     })
   })
 
-  it('upserts member profile and bootstraps first ledger', async () => {
+  it('creates member profile with display name on first sign-in and bootstraps first ledger', async () => {
     const user = createUser({ user_metadata: { full_name: 'Jane Doe' } })
 
     await ensureMemberProfile(user)
 
     expect(mocks.fromMock).toHaveBeenCalledWith('members')
-    expect(mocks.upsertMock).toHaveBeenCalledWith({
+    expect(mocks.selectMock).toHaveBeenCalledWith('id')
+    expect(mocks.selectEqMock).toHaveBeenCalledWith('id', user.id)
+    expect(mocks.insertMock).toHaveBeenCalledWith({
       id: user.id,
       email: user.email,
       display_name: 'Jane Doe',
@@ -75,6 +89,22 @@ describe('ensureMemberProfile', () => {
     expect(mocks.rpcMock).toHaveBeenCalledWith('bootstrap_first_ledger', {
       p_ledger_name: 'Company Ledger',
     })
+  })
+
+  it('does not overwrite display name for existing members on later sign-ins', async () => {
+    const user = createUser({ user_metadata: { full_name: 'Updated Name' } })
+    mocks.maybeSingleMock.mockResolvedValue({
+      data: { id: user.id },
+      error: null,
+    })
+
+    await ensureMemberProfile(user)
+
+    expect(mocks.updateMock).toHaveBeenCalledWith({
+      email: user.email,
+      is_active: true,
+    })
+    expect(mocks.updateEqMock).toHaveBeenCalledWith('id', user.id)
   })
 
   it('throws when id or email is missing', async () => {
